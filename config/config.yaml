@@ -1,0 +1,35 @@
+batch_size: 1
+res: 5e-3
+max_epoch: 200
+num_points: 3072
+npoint_max: 10000
+use_normal: True
+regress_right: False
+regress_forward: True
+tr_num_bins: 32
+rot_num_bins: 36
+opt: 
+  weight_decay: 1e-4
+  lr: 1e-3  # 1e-3
+up_sym: False
+right_sym: False
+z_right: False
+cls_bins: True
+
+defaults:
+  - _self_  
+  - category: dishwasher # 'laptop', 'eyeglasses', 'dishwasher', 'drawer', 'scissors'
+ 
+centric: base   # base   child   seg   seg_random
+root_dir: /home/mxh24/codes/PPF_Tracker_release
+ckpdir: checkpoint5_hebing
+# workdir: ${root_dir}/${ckpdir}/${category}/${centric}
+knn: 60
+
+
+hydra:
+  run:  
+    dir: ${root_dir}/${ckpdir}/${category}/${centric}  
+  sweep:  
+    dir: ${root_dir}/${ckpdir}
+    subdir: ${category}

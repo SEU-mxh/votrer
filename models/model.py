@@ -17,7 +17,7 @@ from Pointnet2_PyTorch_master.pointnet2_ops_lib.pointnet2_ops.pointnet2_modules 
 
 from IPython import embed
 from utils.easy_utils import sample_points, generate_rd_transform, easy_trans
-from tqdm import tqdm
+# from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
 
 def print_learning_rate(optimizer):
@@ -119,42 +119,6 @@ class PoseEstimator(torch.nn.Module):
         all_objective = e_geo + part_weight[-1] * e_kin
         transforms = torch.stack(transforms, axis=0)
         return all_objective, e_kin, transforms.detach()
-
-class Pose_Ts_part_size(nn.Module):
-    def __init__(self):
-        super(Pose_Ts_part_size, self).__init__()
-        self.f = 1289
-        #self.k = FLAGS.Ts_c
-        self.k = 3     # num_parts*3
-
-        #self.conv1 = torch.nn.Conv1d(self.f, 1024, 1)
-        #self.conv1 = torch.nn.Conv1d(1283, 1024, 1)
-        num_points = 1024*3
-        self.conv1 = torch.nn.Conv1d(1795, num_points, 1)
-        self.conv2 = torch.nn.Conv1d(num_points, 256, 1)
-        self.conv3 = torch.nn.Conv1d(256, 256, 1)
-        self.conv4 = torch.nn.Conv1d(256, self.k, 1)
-        self.drop1 = nn.Dropout(0.2)
-        self.bn1 = nn.BatchNorm1d(num_points)
-        self.bn2 = nn.BatchNorm1d(256)
-        self.bn3 = nn.BatchNorm1d(256)
-
-    def forward(self, x):
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-
-        x = torch.max(x, 2, keepdim=True)[0]
-
-        x = F.relu(self.conv3(x)) # outshape 1,256,1
-        x = self.drop1(x)
-        x = self.conv4(x)
-
-        x = x.squeeze(2)
-        x = x.contiguous()
-        #xt = x[:, 0:3]
-        xs = x[:, 0:]
-        return  xs
-
 
 class PointSeg(nn.Module):
     def __init__(self, in_channel=3,num_parts=2,use_background=False):
@@ -273,54 +237,6 @@ class ResLayer(torch.nn.Module):
         x = self.bn2(self.fc2(x))
         return x + x_res
     
-class PointEncoder(nn.Module):
-    def __init__(self, k, spfcs, out_dim1, num_layers=2, num_nbr_feats=2) -> None:
-        super().__init__()
-        self.k = k
-        self.spconvs = nn.ModuleList()
-        self.spconvs.append(SparseSO3Conv(32, num_nbr_feats, out_dim1, *spfcs))
-        self.aggrs = nn.ModuleList()
-        self.aggrs.append(GlobalInfoProp(out_dim1, out_dim1 // 4))
-        for _ in range(num_layers - 1):
-            self.spconvs.append(SparseSO3Conv(32, out_dim1 + out_dim1 // 4, out_dim1, *spfcs))
-            self.aggrs.append(GlobalInfoProp(out_dim1, out_dim1 // 4))
-      
-
-    def forward(self, pc, pc_normal, dist):
-        nbrs_idx = torch.topk(dist, self.k, largest=False, sorted=False)[1]  #[..., N, K]
-        pc_nbrs = torch.gather(pc.unsqueeze(-3).expand(*pc.shape[:-1], *pc.shape[-2:]), -2, nbrs_idx[..., None].expand(*nbrs_idx.shape, pc.shape[-1]))  #[..., N, K, 3]
-        pc_nbrs_centered = pc_nbrs - pc.unsqueeze(-2)  #[..., N, K, 3]
-        pc_nbrs_norm = torch.norm(pc_nbrs_centered, dim=-1, keepdim=True)
-        
-        pc_normal_nbrs = torch.gather(pc_normal.unsqueeze(-3).expand(*pc_normal.shape[:-1], *pc_normal.shape[-2:]), -2, nbrs_idx[..., None].expand(*nbrs_idx.shape, pc_normal.shape[-1]))  #[..., N, K, 3]
-        pc_normal_cos = torch.sum(pc_normal_nbrs * pc_normal.unsqueeze(-2), -1, keepdim=True)
-        
-        feat = self.aggrs[0](self.spconvs[0](pc_nbrs, torch.cat([pc_nbrs_norm, pc_normal_cos], -1), pc))
-        for i in range(len(self.spconvs) - 1):
-            spconv = self.spconvs[i + 1]
-            aggr = self.aggrs[i + 1]
-            feat_nbrs = torch.gather(feat.unsqueeze(-3).expand(*feat.shape[:-1], *feat.shape[-2:]), -2, nbrs_idx[..., None].expand(*nbrs_idx.shape, feat.shape[-1]))
-            feat = aggr(spconv(pc_nbrs, feat_nbrs, pc))  # [1, X, 40]
-        
-        return feat 
-    
-    def forward_nbrs(self, pc, pc_normal, nbrs_idx):
-        pc_nbrs = torch.gather(pc.unsqueeze(-3).expand(*pc.shape[:-1], *pc.shape[-2:]), -2, nbrs_idx[..., None].expand(*nbrs_idx.shape, pc.shape[-1]))  #[..., N, K, 3]
-        pc_nbrs_centered = pc_nbrs - pc.unsqueeze(-2)  #[..., N, K, 3]
-        pc_nbrs_norm = torch.norm(pc_nbrs_centered, dim=-1, keepdim=True)
-        
-        pc_normal_nbrs = torch.gather(pc_normal.unsqueeze(-3).expand(*pc_normal.shape[:-1], *pc_normal.shape[-2:]), -2, nbrs_idx[..., None].expand(*nbrs_idx.shape, pc_normal.shape[-1]))  #[..., N, K, 3]
-        pc_normal_cos = torch.sum(pc_normal_nbrs * pc_normal.unsqueeze(-2), -1, keepdim=True)
-        
-        feat = self.aggrs[0](self.spconvs[0](pc_nbrs, torch.cat([pc_nbrs_norm, pc_normal_cos], -1), pc))
-        for i in range(len(self.spconvs) - 1):
-            spconv = self.spconvs[i + 1]
-            aggr = self.aggrs[i + 1]
-            feat_nbrs = torch.gather(feat.unsqueeze(-3).expand(*feat.shape[:-1], *feat.shape[-2:]), -2, nbrs_idx[..., None].expand(*nbrs_idx.shape, feat.shape[-1]))
-            feat = aggr(spconv(pc_nbrs, feat_nbrs, pc))
-        return feat
-
-
 class PPFEncoder(nn.Module):
     def __init__(self, ppffcs, out_dim2, k, spfcs, out_dim1, num_layers=2, num_nbr_feats=2, weighted=False) -> None:
         super().__init__()
@@ -341,22 +257,6 @@ class PPFEncoder(nn.Module):
             self.res_layers.append(ResLayer(dim_in, dim_out, bn=False))
         self.final = nn.Linear(ppffcs[-1], out_dim2)
 
-        #############################################################################
-        self.neighbor_num = 20
-        self.support_num = 7
-        self.conv_0 = gcn3d_hs.HSlayer_surface(kernel_num=128, support_num=self.support_num)
-        self.conv_1 = gcn3d_hs.HS_layer(128, 128, support_num=self.support_num)
-        self.pool_1 = gcn3d_hs.Pool_layer(pooling_rate=4, neighbor_num=4)
-        self.conv_2 = gcn3d_hs.HS_layer(128, 256, support_num=self.support_num)
-        self.conv_3 = gcn3d_hs.HS_layer(256, 256, support_num=self.support_num)
-        self.pool_2 = gcn3d_hs.Pool_layer(pooling_rate=4, neighbor_num=4)
-        self.conv_4 = gcn3d_hs.HS_layer(256, 512, support_num=self.support_num)
-        self.conv_5 = gcn3d_hs.HS_layer(512, 512, support_num=self.support_num)
-        self.bn1 = nn.BatchNorm1d(128)
-        self.bn2 = nn.BatchNorm1d(256)
-        self.bn3 = nn.BatchNorm1d(256)
-        self.bn4 = nn.BatchNorm1d(512)
-        self.get_size = Pose_Ts_part_size()
 
     def forward(self, pc, pc_normal, dist=None, idxs=None, vertices=None):
         nbrs_idx = torch.topk(dist, self.k, largest=False, sorted=False)[1]  #[..., N, K]
@@ -403,7 +303,7 @@ class PPFEncoder(nn.Module):
                 # ppf.zero_()
                 final_feat = torch.cat([feat_chunk[..., None, :].expand(*target_shape), feat[..., None, :, :].expand(*target_shape), ppf], -1)
             
-                # 应用加权
+               
                 if self.weighted:
                     w = weight[..., idx, :].unsqueeze(-1)
                     final_feat = final_feat * w
@@ -417,14 +317,8 @@ class PPFEncoder(nn.Module):
             output = torch.cat(outputs, dim=-3)
             final_output = self.final(output)
 
-        if vertices is not None:
-            # 推理阶段主动输入逆变换后的点云
-            Pred_s = self.estimate_size(vertices)
-        else:
-            # 训练阶段，直接用标准空间点云就行  pc.shape   torch.Size([1, 3072, 3])
-            Pred_s = self.estimate_size(pc)    # [1, 3]
-
-        return final_output, Pred_s
+       
+        return final_output
 
     def forward_with_idx(self, pc, pc_normal, feat, idxs):
         a_idxs = idxs[:, 0]
@@ -464,65 +358,11 @@ class PPFEncoder(nn.Module):
             feat = aggr(spconv(pc_nbrs, feat_nbrs, pc))
         return feat
 
-    def estimate_size(self, vertices):
-        # 这个地方就不该传标准空间的点云，就算要用也应该使用优化之后的变换矩阵逆回去
-        if type(vertices) is np.ndarray:            
-            # 转化成torch格式，并且增加一个batch维度
-            vertices = torch.from_numpy(vertices).to('cuda').unsqueeze(0)
-
-        vertices -= vertices.mean(dim=1, keepdim=True)
-        # 对点云进行一个扰动增强鲁棒性
-        _, rd_R, rd_t = generate_rd_transform([-5,5],[-0.02,0.02])
-        rd_R, rd_t = torch.from_numpy(rd_R).to('cuda').float(), torch.from_numpy(rd_t).to('cuda').float()
-        # 对vertices进行rd_RT变换
-        vertices = torch.matmul(vertices, rd_R.T) + rd_t  # [1, 3072, 3]
-        
-  
-        fm_0 = F.relu(self.conv_0(vertices, self.neighbor_num), inplace=True)#bs,n,128
-        fm_1 = F.relu(self.bn1(self.conv_1(vertices, fm_0, self.neighbor_num).transpose(1, 2)).transpose(1, 2), inplace=True)#bs,n,128
-        v_pool_1, fm_pool_1 = self.pool_1(vertices, fm_1)
-        fm_2 = F.relu(self.bn2(self.conv_2(v_pool_1, fm_pool_1, 
-                                           min(self.neighbor_num, v_pool_1.shape[1] // 8)).transpose(1, 2)).transpose(1, 2), inplace=True)
-        fm_3 = F.relu(self.bn3(self.conv_3(v_pool_1, fm_2, 
-                                           min(self.neighbor_num, v_pool_1.shape[1] // 8)).transpose(1, 2)).transpose(1, 2), inplace=True)
-        v_pool_2, fm_pool_2 = self.pool_2(v_pool_1, fm_3)
-        fm_4 = self.conv_4(v_pool_2, fm_pool_2, min(self.neighbor_num, v_pool_2.shape[1] // 8))#
-        fm_5 = F.relu(self.bn4(self.conv_5(v_pool_2, fm_4, 
-                                       min(self.neighbor_num, v_pool_2.shape[1] // 8)).transpose(1, 2)).transpose(1, 2), inplace=True)
-
-        nearest_pool_1 = gcn3d_hs.get_nearest_index(vertices, v_pool_1)
-        nearest_pool_2 = gcn3d_hs.get_nearest_index(vertices, v_pool_2)
-        fm_2 = gcn3d_hs.indexing_neighbor_new(fm_2, nearest_pool_1).squeeze(2)#bs,n,256
-        fm_3 = gcn3d_hs.indexing_neighbor_new(fm_3, nearest_pool_1).squeeze(2)#bs,n,256
-        fm_4 = gcn3d_hs.indexing_neighbor_new(fm_4, nearest_pool_2).squeeze(2)#bs,n,512
-        fm_5 = gcn3d_hs.indexing_neighbor_new(fm_5, nearest_pool_2).squeeze(2)#bs,n,512
-        
-        f_s = torch.cat([fm_0, fm_1, fm_2, fm_3, fm_4,fm_5], dim=2)#bs,n,1280 1792
-  
-        ###size estimation###
-        feat_for_size = torch.cat([f_s, vertices], dim=2)  #bs 1024 1795
-        Pred_s = self.get_size(feat_for_size.permute(0, 2, 1))#bs 3*num_parts
-        return Pred_s
-    
     @staticmethod
     def optimization(estimator, camera_pts, cad_pts, part_weight, k=False):
-        """
-        使用观测点云和预测点云计算chamfer_distance, 将变换矩阵参数化, 进行优化更新
-        pose_estimator = pose_optimizer.PoseEstimator(num_parts=n_parts, init_r=init_base_r, init_t=init_base_t,
-                                                device=device, joint_type='revolute')
-
-        loss, optim_transforms = pose_optimizer.optimize_pose(pose_estimator, xyz_camera, cad, part_weight)
-        
-        """
+       
         estimator.rot_quat_s.requires_grad_(True)
         estimator.tra_s.requires_grad_(True)
-        # params_to_optimize = []
-        # for i, c in enumerate(choosen_opt):
-        #     estimator.rot_quat_s[i].requires_grad_(c)
-        #     estimator.tra_s[i].requires_grad_(c)
-        #     if c:
-        #         params_to_optimize.append(estimator.rot_quat_s[i])
-        #         params_to_optimize.append(estimator.tra_s[i])
 
         lr = 0.1
         if k:
@@ -536,22 +376,20 @@ class PPFEncoder(nn.Module):
         best_loss = float('inf')
         current_lr = lr
         transforms = None
-        with tqdm(range(MAX_EPOCH), desc='optim') as tbar:
-            for iter in tbar:
-                loss, e, transform = estimator(camera_pts, cad_pts, part_weight)
-                tbar.set_postfix(loss=loss.item(),e=e.item(),lr=current_lr, x=iter)
-                tbar.update()  # 默认参数n=1，每update一次，进度+n
-                
-                if loss.item() < best_loss:
-                    best_loss = loss.item()
-                    transforms = transform
-                if best_loss <= 0.3:
-                    break
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                # change lr
-                current_lr = print_learning_rate(optimizer)
-                scheduler.step()
+        for e in range(MAX_EPOCH):
+       
+            loss, e, transform = estimator(camera_pts, cad_pts, part_weight)
+           
+            if loss.item() < best_loss:
+                best_loss = loss.item()
+                transforms = transform
+            if best_loss <= 0.3:
+                break
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            # change lr
+            current_lr = print_learning_rate(optimizer)
+            scheduler.step()
     
         return loss, transforms
