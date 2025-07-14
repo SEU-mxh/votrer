@@ -1,11 +1,5 @@
 import os
-
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-os.environ["CXX"] = "/usr/bin/g++-9"
-os.environ["CC"] = "/usr/bin/gcc-9"
 import sys
-
-sys.path.append('/home/mxh24/codes/PPF_Tracker_release')
 
 import math
 import time
