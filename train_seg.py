@@ -1,7 +1,6 @@
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '2'
-os.environ['CXX'] = '/usr/bin/g++-9'
-os.environ['CC'] = '/usr/bin/gcc-9'
+
 import sys
 
 from glob import glob
