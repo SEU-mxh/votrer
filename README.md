@@ -58,9 +58,11 @@ Notice that we use pyrender with OSMesa support, you may need to install OSMesa 
 ``MinkowskiEngine`` append its package path into ``sys.path`` (a.k.a., PYTHONPATH), which includes a module named ``utils``. In order not to get messed with our own ``utils`` package, you should import ``MinkowskiEngine`` after importing ``utils``.
 </details>
 
+# Dataset
+Our dataset can be availabel at [here](https://pan.baidu.com/s/1taaHuE4yo_mEcd38yrGLHQ?pwd=3560). You can download it ant put it into your_dataset_path. 
 
-# Traing and testing
-Beforing traing, you need to modify the config.yaml to your own path. Then you can run own code easily.
+# Training and testing
+Beforing training, you need to modify the config.yaml to your own path. Then you can run own code easily.
 ```
 python train_ppf.py 
 ```
