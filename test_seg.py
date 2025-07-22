@@ -1,7 +1,6 @@
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-os.environ['CXX'] = '/usr/bin/g++-9'
-os.environ['CC'] = '/usr/bin/gcc-9'
+
 import sys
 sys.path.append('/home/mxh24/codes/PPF_Tracker_release')
 import glob
@@ -40,7 +39,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     cp_device = args.cp_device
-    # 如果跑不了就在终端输入一下  unset LD_LIBRARY_PATH
 
 
     path = os.path.join(args.ckpt_path)
