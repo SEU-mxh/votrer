@@ -32,7 +32,7 @@ def estimate_normals(pc, knn):
     pcd.points = o3d.utility.Vector3dVector(pc)
     pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamKNN(knn=knn))
     return np.array(pcd.normals,dtype=np.float32)
-# 如果训练不了就在终端输入一下  unset LD_LIBRARY_PATH
+
 @hydra.main(config_path='./config', config_name='config')
 def main(cfg):
     logger = logging.getLogger(__name__)
