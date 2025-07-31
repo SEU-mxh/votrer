@@ -1,0 +1,13 @@
+# @package _global_
+up_sym: False
+regress_right: True
+res: 3e-2
+category: eyeglasses
+scale_range: [0.7999364364268209, 1.559057241958137]
+vote_range: [0.7863312261283193, 0.7863312261283193]
+# scale_mean: [0.29636475108453486, 0.4208450279047945, 0.2789450356430997]
+scale_mean_base: [0.64, 0.40, 0.62]  # 对于laptop的base，这个值问题很大，因为遮挡过于严重
+scale_mean_child: [0.64, 0.64, 0.38]  # child 的值 比较靠谱
+state: [-10,10]
+part_weighted: [0.8,1.0,1.2,1]
+lim: [0.2,0.1]

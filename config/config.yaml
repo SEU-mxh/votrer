@@ -1,0 +1,41 @@
+batch_size: 1
+res: 0.05  # 5e-3
+max_epoch: 10
+num_points: 1024
+# npoint_max: 10000
+use_normal: True
+regress_right: True
+regress_forward: True
+tr_num_bins: 32
+rot_num_bins: 36
+
+
+opt: 
+  weight_decay: 1e-4
+  lr: 1e-3  # 1e-3
+up_sym: False
+right_sym: False
+z_right: False
+cls_bins: True
+aux_cls: True
+
+defaults:
+  - _self_  
+  - category: dishwasher # 'laptop'2, 'eyeglasses'3, 'dishwasher'2, 'drawer'4, 'scissors'2
+
+num_parts: 2
+seg_random: True
+augment: True
+
+root_dir: /home/mxh24/codes/PPF_Tracker 
+ckpdir: checkpoint3_size
+# workdir: ${root_dir}/${ckpdir}/${category}/${centric}
+knn: 20   # 60
+
+
+hydra:
+  run:  
+    dir: ${root_dir}/${ckpdir}/${category}
+  sweep:  
+    dir: ${root_dir}/${ckpdir}
+    subdir: ${category}
