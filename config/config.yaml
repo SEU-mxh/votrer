@@ -27,7 +27,7 @@ num_parts: 2
 seg_random: True
 augment: True
 
-root_dir: /home/mxh24/codes/PPF_Tracker 
+root_dir: /home/xxx/codes/PPF_Tracker 
 ckpdir: checkpoint
 # workdir: ${root_dir}/${ckpdir}/${category}/${centric}
 knn: 20   # 60
